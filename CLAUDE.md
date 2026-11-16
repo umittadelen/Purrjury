@@ -1,7 +1,7 @@
 # Purrjury
 
 Daily logic puzzle: a grid of cats, honest cats always tell the truth, liars always lie, each cat has one clue. Find the liars.
-Python engine in `purrjury/`, plain HTML/CSS/JS site in `web/` (GitHub Pages: yusufsocal.github.io/Purrjury/web).
+Python engine in `purrjury/`, plain HTML/CSS/JS site in `web/`, published at the root by `.github/workflows/pages.yml` (yusufsocal.github.io/Purrjury, later purrjury.com).
 Design by Brojum (Yusuf), most code written by Claude.
 
 ## How to work with me

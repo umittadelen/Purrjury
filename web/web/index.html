@@ -1,0 +1,15 @@
+<!doctype html>
+<!-- Old links: the site used to be at .../web/, now it's at the root (see .github/workflows/pages.yml).
+     This sends them to the same page one level up, keeping ?... and #... (like #2026-11-20/3x3). -->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Purrjury</title>
+  <script>location.replace("../" + location.search + location.hash);</script>
+  <noscript><meta http-equiv="refresh" content="0; url=../"></noscript>
+</head>
+<body>
+  <p><a href="../">Play Purrjury</a></p>
+</body>
+</html>
