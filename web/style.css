@@ -190,6 +190,13 @@ button:hover { border-color: var(--muted); }
 @media (prefers-reduced-motion: reduce) {
   .card.talked-by .sprite, .card .name { animation: none; }
 }
+/* just solved: the cats hop in a wave (each card's --wave delay comes from celebrate in board.js),
+   and "Purrfect!" pops in above the grid. Phones bounce the whole card, their cat picture is the faint one. */
+.card.wave .sprite { animation: hop 0.5s ease-out var(--wave) both; }
+@keyframes card-bounce { 0%, 100% { transform: translateY(0); } 40% { transform: translateY(-8px); } }
+.tag-purr { font-size: 1rem; color: var(--honest); animation: name-grow 0.45s ease-out; }
+@media (max-width: 600px) { .card.wave { animation: card-bounce 0.45s ease-out var(--wave) both; } }
+@media (prefers-reduced-motion: reduce) { .card.wave, .card.wave .sprite, .tag-purr { animation: none; } }
 #legend { display: flex; justify-content: center; flex-wrap: wrap; gap: 8px; min-height: 1.6em; margin: 0 0 10px; }
 .tag { font-size: 0.8rem; font-weight: 600; }
 .tag-by { color: var(--ink); }
@@ -315,6 +322,25 @@ body.feedback #how-to-play { border: 2px solid var(--hint); }
   font: inherit; font-size: 1rem;   /* 16px or more, or phones zoom in when you tap it */
   padding: 6px 8px; border: 1px solid var(--line); border-radius: 8px; resize: none;
 }
+/* the daily's solved card: simple. The time big, one grey line, dots for hard and fun,
+   a note that's only a line to write on (no box), and two buttons. ✕ in the corner closes it. */
+#rating.simple { text-align: center; padding: 18px 20px 16px; }
+.card-close { position: absolute; top: 6px; right: 8px; border: none; background: none; padding: 4px 8px; color: var(--muted); font-size: 1rem; }
+.solved-time { margin: 0; font-size: 2.2rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.solved-line { margin: 2px 0 14px; font-size: 0.85rem; color: var(--muted); }
+.dot-row { display: flex; justify-content: center; align-items: center; gap: 8px; margin: 6px 0; }
+.dot-row::after { content: ""; width: 3em; }   /* as wide as the label, so the dots sit in the middle */
+.dot-label { width: 3em; text-align: right; font-size: 0.85rem; color: var(--muted); }
+.dot { width: 20px; height: 20px; padding: 0; border-radius: 50%; border: 2px solid var(--line); background: none; }
+.dot:hover { border-color: var(--muted); }
+.dot.on { background: var(--ink); border-color: var(--ink); }
+#rating textarea.note-line {
+  margin: 14px 0 0; padding: 4px 2px; border: none; border-bottom: 1px solid var(--line); border-radius: 0;
+  background: transparent; outline: none; resize: none; overflow: hidden; text-align: left;
+}
+#rating textarea.note-line:focus { border-bottom-color: var(--ink); }
+#rating.simple .rating-buttons { margin-top: 16px; }
+#rating.simple .rating-buttons button { flex: 1; }
 /* the one-time "how often do you play logic puzzles?" question */
 .experience p { margin: 8px 0 4px; font-size: 0.9rem; font-weight: 600; }
 .experience button { padding: 4px 12px; }

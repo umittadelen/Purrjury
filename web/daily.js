@@ -183,8 +183,9 @@ function updateCountdown() {
 }
 
 
-// the card once a daily puzzle is solved: time, streak, two rows of paws, a comment, Send, Share and on to the next one.
-// It goes to the sheet with Send, or with whatever is filled in when you leave the card (leaveCard).
+// the card once a daily puzzle is solved, kept simple: the time big, hints and streak, two rows of dots
+// (hard and fun, 1 to 5), a quiet line for a note, Share, and on to the next one. ✕ closes it to see the board.
+// No Send: it all goes to the sheet when you leave the card (leaveCard). Results under the grid opens it again.
 function renderDailyCard() {
   stopButton.hidden = true;
   const s = state();
@@ -194,49 +195,79 @@ function renderDailyCard() {
   const i = list[current];
   const day = dayOf[i];
 
-  const title = document.createElement("h3");
-  title.textContent = `Solved in ${formatTime(s.seconds)}! 🐾`;
-  const line = document.createElement("p");
-  line.className = "rating-help";
-  const days = streak();
-  line.textContent = `${s.hints} hint${s.hints === 1 ? "" : "s"}` + (days ? ` · 🔥 ${days} day${days === 1 ? "" : "s"} in a row` : "");
-  ratingBox.append(title, line);
+  const close = document.createElement("button");
+  close.className = "card-close";
+  close.textContent = "✕";
+  close.title = "Close, to see the board";
+  close.setAttribute("aria-label", close.title);
+  close.addEventListener("click", () => leaveCard(render));
 
+  const time = document.createElement("p");
+  time.className = "solved-time";
+  time.textContent = formatTime(s.seconds);
+  const line = document.createElement("p");
+  line.className = "solved-line";
+  const days = streak();
+  line.textContent = `${s.hints} hint${s.hints === 1 ? "" : "s"}` + (days ? ` · ${days} day${days === 1 ? "" : "s"} in a row` : "");
+  ratingBox.append(close, time, line);
+
+  // not sent yet: the dots and the note (once it's sent, there's nothing left to fill in)
   if (!s.sent) {
-    const help = document.createElement("p");
-    help.className = "rating-help";
-    help.textContent = "How was it? More paws = harder, or more fun.";
-    const comment = document.createElement("textarea");
-    comment.rows = 2;
-    comment.placeholder = "Anything to add? (optional)";
-    comment.value = s.comment;
-    comment.addEventListener("input", () => { s.comment = comment.value; });   // no render, it would lose the cursor
-    ratingBox.append(help, pawRow("Hard", "hard"), pawRow("Fun", "fun"), comment);
+    const note = document.createElement("textarea");
+    note.className = "note-line";
+    note.rows = 1;
+    note.placeholder = "Anything to add?";
+    note.value = s.comment;
+    // a longer note grows a line at a time instead of scrolling
+    const grow = () => { note.style.height = "auto"; note.style.height = note.scrollHeight + "px"; };
+    note.addEventListener("input", () => { s.comment = note.value; grow(); });   // no render, it would lose the cursor
+    ratingBox.append(dotRow("Hard", "hard"), dotRow("Fun", "fun"), note);
+    requestAnimationFrame(grow);
   }
-  const rated = s.hard || s.fun || s.comment.trim();
-  const status = document.createElement("p");
-  status.className = s.error ? "rating-error" : "rating-help";
-  status.textContent = s.error || (s.sending ? "Sending…" : s.sent && rated ? "Thanks for rating! 🐾" : "");
-  if (status.textContent) ratingBox.append(status);
+  if (s.error) {
+    const error = document.createElement("p");
+    error.className = "rating-error";
+    error.textContent = "Couldn't send your rating. It tries again when you close this.";
+    ratingBox.append(error);
+  }
 
   const buttons = document.createElement("div");
   buttons.className = "rating-buttons";
-  // Send while it isn't sent (leaving the card sends it too, so Send is only the clear way to finish)
-  if (!s.sent) {
-    const send = ratingButton(s.sending ? "Sending…" : "Send", () => sendDaily(i), true);
-    send.disabled = s.sending;
-    buttons.append(send);
-  }
   buttons.append(ratingButton(copied ? "Copied!" : "Share", () => share(day)));
-  buttons.append(ratingButton("See the board", () => leaveCard(render)));
-  // on to the other puzzle of the day if it isn't solved yet, else back home (the main button once it's sent)
+  // on to the other puzzle of the day if it isn't solved yet, else back home
   const other = dayIndexes[day].find(j => j !== i && !states[j].solved);
   if (other !== undefined) {
-    buttons.append(ratingButton(`Play the ${sizeOf(ALL_PUZZLES[other])} →`, () => leaveCard(() => { current = list.indexOf(other); render(); }), s.sent));
+    buttons.append(ratingButton(`Play the ${sizeOf(ALL_PUZZLES[other])} →`, () => leaveCard(() => { current = list.indexOf(other); render(); }), true));
   } else {
-    buttons.append(ratingButton("Home", () => leaveCard(goHome), s.sent));
+    buttons.append(ratingButton("Home", () => leaveCard(goHome), true));
   }
   ratingBox.append(buttons);
+}
+
+// one row of five dots for "hard" or "fun": tap a dot to give that many.
+// It only recolors the dots, no redraw, so a note you're typing keeps its cursor (and a phone its keyboard).
+function dotRow(label, field) {
+  const s = state();
+  const row = document.createElement("div");
+  row.className = "dot-row";
+  const name = document.createElement("span");
+  name.className = "dot-label";
+  name.textContent = label;
+  row.append(name);
+  const dots = [];
+  for (let n = 1; n <= 5; n++) {
+    const dot = document.createElement("button");
+    dot.className = n <= s[field] ? "dot on" : "dot";
+    dot.title = `${label}: ${n} of 5`;
+    dot.setAttribute("aria-label", dot.title);
+    dot.addEventListener("click", () => {
+      s[field] = n;
+      dots.forEach((d, k) => d.classList.toggle("on", k < n));
+    });
+    dots.push(dot);
+    row.append(dot);
+  }
+  return row;
 }
 
 // close the card (sending the time if the paws weren't picked), then go on

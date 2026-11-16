@@ -12,6 +12,7 @@ const stopButton = document.getElementById("stop");
 function renderRating() {
   saveProgress();   // render() ends here, and so do paw taps and sending: a good moment to save
   renderSubmitAndShare();
+  ratingBox.classList.toggle("simple", DAILY_MODE && !lesson());   // the daily's card has its own simple look
   if (DAILY_MODE && !lesson()) return renderDailyCard();
   if (!FEEDBACK || (lesson() && !lastLesson())) {
     ratingBox.hidden = true;

@@ -40,6 +40,11 @@ function render() {
     if (i === p.given) card.classList.add("given");
     if (s.used[i]) card.classList.add("used");
     if (s.revealed) card.classList.add(p.liars[i] ? "answer-liar" : "answer-honest");
+    // just solved: the cats hop in a wave from the top-left corner (see celebrate)
+    if (celebrating) {
+      card.classList.add("wave");
+      card.style.setProperty("--wave", `${(cat.row + cat.column) * WAVE_STEP_MS}ms`);
+    }
 
     // connections: the chosen cat, and either the cats that talk about it or the cats it talks about
     if (highlight !== null) {
@@ -340,8 +345,9 @@ function submit() {
   s.checks++;
   if (s.marks.every((mark, i) => (mark === "liar") === p.liars[i])) {
     s.solved = true;
-    s.cardOpen = !s.sent;   // time to rate it (unless it's rated already)
-    message.textContent = `Solved in ${formatTime(s.seconds)}! 🐾`;
+    message.textContent = "";
+    // the wave first, then the card to rate it (unless it's rated already)
+    return celebrate(() => { s.cardOpen = !s.sent; });
   } else {
     s.wrongChecks++;
     message.textContent = "Not quite, some marks are wrong. Stuck? Try a hint.";
@@ -411,7 +417,29 @@ function check() {
     s.solved = true;
     const hints = s.hints ? ` and ${s.hints} hint${s.hints === 1 ? "" : "s"}` : "";
     message.textContent = `Solved in ${formatTime(s.seconds)} with ${s.wrongChecks} mistake${s.wrongChecks === 1 ? "" : "s"}${hints}! 🐾`;
+    celebrate();
   }
+}
+
+
+// Solved! The cats hop in a wave from the top-left corner (one diagonal every WAVE_STEP_MS) and "Purrfect!"
+// shows above the grid. `then` runs once the wave is over, so the solved card doesn't cover it.
+// With "reduce motion" on, the CSS skips the hops and only the text shows.
+const WAVE_STEP_MS = 90;
+let celebrating = false;
+
+function celebrate(then) {
+  const p = puzzle();
+  celebrating = true;
+  clearHint();
+  render();
+  showHintLabel("Purrfect! 🐾");
+  legend.firstChild.classList.add("tag-purr");
+  setTimeout(() => {
+    celebrating = false;
+    then?.();
+    if (!game.hidden && puzzle() === p) render();   // only if you're still on this puzzle
+  }, (p.rows + p.cols - 2) * WAVE_STEP_MS + 600);
 }
 
 
