@@ -92,7 +92,7 @@
   <p id="message"></p>
   </section>
 
-  <!-- feedback set: the rating card (renderRating in game.js) and the menu's feedback card (renderGeneral).
+  <!-- feedback set: the rating card (renderRating in sheet.js) and the menu's feedback card (renderGeneral).
        Outside #game, so it can show on the menu too, where #game is hidden. -->
   <div id="rating" hidden></div>
   </div>
@@ -161,7 +161,7 @@
       <p>Every puzzle is checked to have only one, so it's probably a small slip
         somewhere. But if you're sure, tap "Report this puzzle" with your marks
         still on the board, and it will reach me with your exact board. I'll check it!</p>
-      <!-- sends the puzzle and your marks to the sheet (reportPuzzle in game.js) -->
+      <!-- sends the puzzle and your marks to the sheet (reportPuzzle in sheet.js) -->
       <p><button id="report">Report this puzzle</button> <span id="report-status"></span></p>
     </section>
 
@@ -177,7 +177,7 @@
   </footer>
 
   <script>
-    // the daily page loads days.js (which days exist) and this month's puzzles; game.js loads other months
+    // the daily page loads days.js (which days exist) and this month's puzzles; daily.js loads other months
     // when you open past days. Practice plays puzzles.js, the feedback set feedback_puzzles.js.
     if (PAGE === "daily") {
       const now = new Date();
@@ -189,7 +189,10 @@
       document.write(`<script src="${PUZZLE_FILE}?v=${VERSION}"><\/script>`);
     }
     document.write(`<script src="tutorial.js?v=${VERSION}"><\/script>`);
-    document.write(`<script src="game.js?v=${VERSION}"><\/script>`);
+    // the game, split by topic. They share everything like one file, so the order matters: main.js starts the page
+    for (const file of ["state", "lessons", "board", "hints", "daily", "sheet", "main"]) {
+      document.write(`<script src="${file}.js?v=${VERSION}"><\/script>`);
+    }
   </script>
 </body>
 </html>

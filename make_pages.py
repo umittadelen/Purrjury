@@ -1,7 +1,7 @@
 """Make the site's extra pages from web/index.html: web/practice/ and web/feedback/.
 
 They're copies of index.html with two lines added at the top: <base href="../">, so every file
-(style.css, game.js, sprites) still comes from web/, and window.PAGE, which tells game.js what to play.
+(style.css, the scripts, sprites) still comes from web/, and window.PAGE, which tells state.js what to play.
 Run it after changing index.html (a test checks the copies are up to date).
 """
 import os

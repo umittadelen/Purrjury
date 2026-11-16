@@ -36,4 +36,4 @@ Design by Brojum (Yusuf), most code written by Claude.
 - `purrjury/statements/`: one file per clue type; `purrjury/texts.py` has all wordings
 - `purrjury/engine/`: solver (solves like a person), path generator (builds puzzles along a solving path), old random generator
 - `export.py`: difficulty settings per level, makes and saves the puzzles for the site
-- `web/`: the site (`game.js`, `style.css`, `puzzles.js`)
+- `web/`: the site. `index.html` and `style.css`; the game split by topic: `state.js` (shared stuff, loaded first), `lessons.js`, `board.js`, `hints.js`, `daily.js`, `sheet.js` (Google Sheet), `main.js` (starts the page, loaded last); `puzzles.js`, `tutorial.js`, `daily/` are made by Python
