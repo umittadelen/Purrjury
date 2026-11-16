@@ -606,17 +606,20 @@ function render() {
 }
 
 
-// Feedback set, puzzles with no cat shown from the start: reading every clue to find a way in
-// is a lot, so a line points at Hint until your first mark, and after NUDGE_SECONDS Hint pulses too.
-// Gone once you've marked a cat or used Hint.
+// Daily and feedback set: someone who can't find a way in should press Hint, not leave.
+// Puzzles with no cat shown from the start: a line points at Hint until your first mark,
+// and after NUDGE_SECONDS Hint pulses too. With a cat shown (its clue is the way in), both wait
+// until GIVEN_NUDGE_SECONDS. Gone once you've marked a cat or used Hint.
 const NUDGE_SECONDS = 30;
+const GIVEN_NUDGE_SECONDS = 45;
 
 function updateNudge() {
   if (MODE === "practice") return;
   const p = puzzle();
   const s = state();
-  const nudge = !lesson() && p.given == null && s.moves === 0 && s.hints === 0
-    && !s.solved && !s.revealed && !s.cardOpen && !s.sent;
+  const nudge = !lesson() && s.moves === 0 && s.hints === 0
+    && !s.solved && !s.revealed && !s.cardOpen && !s.sent
+    && (p.given == null || s.seconds >= GIVEN_NUDGE_SECONDS);
   const line = legend.querySelector(".tag-nudge");
   if (nudge && legend.children.length === 0) {   // only when no hint or connections label is showing
     showHintLabel("Not sure where to start? Try Hint");
@@ -810,8 +813,8 @@ function updateCountdown() {
 }
 
 
-// the card once a daily puzzle is solved: time, streak, two rows of paws, Share and on to the next one.
-// It goes to the sheet once both paws are picked, or with no paws when you leave the card (leaveCard).
+// the card once a daily puzzle is solved: time, streak, two rows of paws, a comment, Send, Share and on to the next one.
+// It goes to the sheet with Send, or with whatever is filled in when you leave the card (leaveCard).
 function renderDailyCard() {
   stopButton.hidden = true;
   const s = state();
@@ -833,27 +836,37 @@ function renderDailyCard() {
     const help = document.createElement("p");
     help.className = "rating-help";
     help.textContent = "How was it? More paws = harder, or more fun.";
-    ratingBox.append(help, pawRow("Hard", "hard"), pawRow("Fun", "fun"));
+    const comment = document.createElement("textarea");
+    comment.rows = 2;
+    comment.placeholder = "Anything to add? (optional)";
+    comment.value = s.comment;
+    comment.addEventListener("input", () => { s.comment = comment.value; });   // no render, it would lose the cursor
+    ratingBox.append(help, pawRow("Hard", "hard"), pawRow("Fun", "fun"), comment);
   }
+  const rated = s.hard || s.fun || s.comment.trim();
   const status = document.createElement("p");
   status.className = s.error ? "rating-error" : "rating-help";
-  status.textContent = s.error || (s.sending ? "Sending…" : s.sent && s.hard ? "Thanks for rating! 🐾" : "");
+  status.textContent = s.error || (s.sending ? "Sending…" : s.sent && rated ? "Thanks for rating! 🐾" : "");
   if (status.textContent) ratingBox.append(status);
 
   const buttons = document.createElement("div");
   buttons.className = "rating-buttons";
+  // Send while it isn't sent (leaving the card sends it too, so Send is only the clear way to finish)
+  if (!s.sent) {
+    const send = ratingButton(s.sending ? "Sending…" : "Send", () => sendDaily(i), true);
+    send.disabled = s.sending;
+    buttons.append(send);
+  }
   buttons.append(ratingButton(copied ? "Copied!" : "Share", () => share(day)));
   buttons.append(ratingButton("See the board", () => leaveCard(render)));
-  // on to the other puzzle of the day if it isn't solved yet, else back home
+  // on to the other puzzle of the day if it isn't solved yet, else back home (the main button once it's sent)
   const other = dayIndexes[day].find(j => j !== i && !states[j].solved);
   if (other !== undefined) {
-    buttons.append(ratingButton(`Play the ${sizeOf(ALL_PUZZLES[other])} →`, () => leaveCard(() => { current = list.indexOf(other); render(); }), true));
+    buttons.append(ratingButton(`Play the ${sizeOf(ALL_PUZZLES[other])} →`, () => leaveCard(() => { current = list.indexOf(other); render(); }), s.sent));
   } else {
-    buttons.append(ratingButton("Home", () => leaveCard(goHome), true));
+    buttons.append(ratingButton("Home", () => leaveCard(goHome), s.sent));
   }
   ratingBox.append(buttons);
-
-  if (s.hard && s.fun && !s.sent && !s.sending) sendDaily(i);   // both paws picked: send right away
 }
 
 // close the card (sending the time if the paws weren't picked), then go on
@@ -869,7 +882,7 @@ function leaveCard(then) {
 function sendDaily(i) {
   const s = states[i];
   if (s.sent || s.sending || !s.solved) return;
-  const msg = { ...sheetRow(i, "solved"), hard: s.hard || "", fun: s.fun || "" };
+  const msg = { ...sheetRow(i, "solved"), hard: s.hard || "", fun: s.fun || "", comment: s.comment.trim() };
   post(msg, s, () => { if (!game.hidden && list[current] === i) renderRating(); else saveProgress(); });
 }
 
@@ -958,6 +971,7 @@ const stopButton = document.getElementById("stop");
 // The tutorial has no Stop and rate, just one card at the end of the last lesson.
 function renderRating() {
   saveProgress();   // render() ends here, and so do paw taps and sending: a good moment to save
+  renderSubmitAndShare();
   if (DAILY_MODE && !lesson()) return renderDailyCard();
   if (!FEEDBACK || (lesson() && !lastLesson())) {
     ratingBox.hidden = true;
@@ -1033,6 +1047,21 @@ function renderRating() {
   // no way back in the tutorial: it's finished, and with no Stop and rate button the card couldn't come back
   if (!tutorial) buttons.append(ratingButton("Back to puzzle", () => { s.cardOpen = false; s.error = ""; render(); }));
   ratingBox.append(buttons);
+}
+
+
+// daily and feedback set: Submit while playing. Daily: once solved, Hint and Submit
+// make room for Share and Results (Results only while the card is closed).
+function renderSubmitAndShare() {
+  if (!FEEDBACK && !DAILY_MODE) return;
+  const s = state();
+  const done = !lesson() && (s.solved || s.revealed);
+  checkButton.hidden = lesson() !== null || done;
+  if (!DAILY_MODE) return;
+  hintButton.hidden = done;
+  shareButton.hidden = !done;
+  resultsButton.hidden = !done || s.cardOpen;
+  shareButton.textContent = copied ? "Copied!" : "Share";
 }
 
 
@@ -1367,30 +1396,30 @@ function cycleMark(i) {
   message.textContent = "";
   clearHint();   // the hint was for the old marks
   checkLesson();
-  if (FEEDBACK || DAILY_MODE) checkFull();
   render();
 }
 
 
-// feedback set (no Check button): once every cat is marked, it's solved if all marks are right.
-// If not, it counts as a wrong check and points at the cat you marked wrong first,
-// since the marks you made after it may have come from it.
-function checkFull() {
+// daily and feedback set: the Submit button. It only says yes or no, never which cat is wrong:
+// naming one would give away its answer. Help with a cat is what Hint is for.
+function submit() {
   const p = puzzle();
   const s = state();
-  if (lesson() || s.marks.includes("unknown")) return;
-  const wrong = p.cats.map((_, i) => i).filter(i => (s.marks[i] === "liar") !== p.liars[i]);
-  if (wrong.length === 0) {
-    s.solved = true;
-    s.cardOpen = !s.sent;   // time to rate it (unless it's rated already)
-    message.textContent = `Solved in ${formatTime(s.seconds)}! 🐾`;
+  if (lesson() || s.solved || s.revealed || s.cardOpen) return;
+  if (s.marks.includes("unknown")) {
+    message.textContent = "Choose all cats before submitting.";   // not a mistake, nothing counted
     return;
   }
   s.checks++;
-  s.wrongChecks++;
-  const first = wrong.reduce((a, b) => s.markedAt[a] <= s.markedAt[b] ? a : b);
-  hintCards = new Set([first]);
-  showHintLabel(`${p.cats[first].name} is wrong. The cats you marked after it may be too.`);
+  if (s.marks.every((mark, i) => (mark === "liar") === p.liars[i])) {
+    s.solved = true;
+    s.cardOpen = !s.sent;   // time to rate it (unless it's rated already)
+    message.textContent = `Solved in ${formatTime(s.seconds)}! 🐾`;
+  } else {
+    s.wrongChecks++;
+    message.textContent = "Not quite, some marks are wrong. Stuck? Try a hint.";
+  }
+  render();
 }
 
 
@@ -1628,7 +1657,8 @@ setInterval(() => {
 
 prevArrow.addEventListener("click", () => go(-1));
 nextArrow.addEventListener("click", () => go(1));
-document.getElementById("check").addEventListener("click", check);
+const checkButton = document.getElementById("check");
+checkButton.addEventListener("click", () => FEEDBACK || DAILY_MODE ? submit() : check());
 document.getElementById("reset").addEventListener("click", reset);
 document.getElementById("reveal").addEventListener("click", reveal);
 document.getElementById("hint").addEventListener("click", hint);
@@ -1638,9 +1668,14 @@ stopButton.addEventListener("click", stopAndRate);
 // switching apps on a phone: save right away, the tab may be closed in the background
 document.addEventListener("visibilitychange", () => { if (document.hidden) saveProgress(); });
 
-// the feedback set: only Hint and Stop and rate, and a note on the menu that you can stop any time
+// daily and feedback set: Check becomes Submit, and there's no Reset or Reveal
+if (FEEDBACK || DAILY_MODE) {
+  checkButton.textContent = "Submit";
+  for (const id of ["reset", "reveal"]) document.getElementById(id).hidden = true;
+}
+
+// the feedback set: only Hint, Submit and Stop and rate, and a note on the menu that you can stop any time
 if (FEEDBACK) {
-  for (const id of ["check", "reset", "reveal"]) document.getElementById(id).hidden = true;
   document.getElementById("feedback-note").hidden = false;
   document.getElementById("start-here").hidden = false;
   const generalButton = document.getElementById("general-feedback");
@@ -1649,9 +1684,15 @@ if (FEEDBACK) {
   document.body.classList.add("feedback");   // the CSS makes How to play stand out
 }
 
-// the daily: like the feedback set, a puzzle is solved once every mark is right, so no Check, Reset or Reveal
+// the daily: like the feedback set, Submit instead of Check, Reset and Reveal.
+// A solved puzzle shows Share and Results (the solved card again) instead of Hint and Submit.
+const shareButton = document.createElement("button");
+const resultsButton = document.createElement("button");
 if (DAILY_MODE) {
-  for (const id of ["check", "reset", "reveal"]) document.getElementById(id).hidden = true;
+  resultsButton.textContent = "Results";
+  shareButton.addEventListener("click", () => share(dayOf[list[current]]));
+  resultsButton.addEventListener("click", () => { clearConnections(); state().cardOpen = true; render(); });
+  document.querySelector(".controls").append(shareButton, resultsButton);
   document.getElementById("menu-button").textContent = "Home";
   document.getElementById("home-how").addEventListener("click", startTutorial);
   document.getElementById("past-button").addEventListener("click", () => goTo(`past/${todayKey().slice(0, 7)}`));
