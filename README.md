@@ -26,4 +26,4 @@ There's a new 3x3 and 4x4 puzzle every day.
 
 ## Credits
 
-The game is my design: the rules, the clue types, how difficulty works, and how the website looks and plays. I'd say about 70% of the code was written by Claude from that design, while I playtested it, reviewed it and decided what to change.
+MEEEEEEEEE
