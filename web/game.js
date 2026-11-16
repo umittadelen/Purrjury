@@ -567,9 +567,9 @@ function render() {
       card.append(secret);
     }
     // tap: change the mark (tap twice quickly for liar). right click or long-press: show connections
+    // (while they show, a tap only closes them, see closeConnectionsOnClick)
     card.addEventListener("click", () => {
       if (longPressed) { longPressed = false; return; }
-      clearConnections();   // a tap closes the highlight and still changes the mark
       cycleMark(i);
     });
     // right click: the cats that talk about it
@@ -1439,6 +1439,17 @@ function showConnections(i) {
   highlightTimer = setTimeout(clearConnections, HIGHLIGHT_SECONDS * 1000);
   render();
 }
+
+
+// while connections show, any click anywhere closes them. On a card that's all it does (no mark change),
+// buttons still do their thing too. Capture phase, so it runs before the card's own click.
+// The tap that ends a long-press is let through: the card's click handler skips it.
+function closeConnectionsOnClick(event) {
+  if (highlight === null || longPressed) return;
+  clearConnections();
+  if (event.target.closest(".card")) event.stopPropagation();
+}
+document.addEventListener("click", closeConnectionsOnClick, true);
 
 
 function clearConnections() {
