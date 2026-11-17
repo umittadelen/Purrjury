@@ -71,8 +71,24 @@ function start(indexes, at) {
 
 // the "How to play" lessons (the daily page goes there by its address, #how-to-play)
 function startTutorial() {
+  replayIfFinished();
   if (DAILY_MODE) return goTo("how-to-play");
   openTutorial();
+}
+
+// The How to play button after you've finished every lesson: play them all again from scratch.
+// Only the button does this, so a reload of #how-to-play keeps where you are.
+// A tutorial rating you sent stays sent, so the feedback set doesn't ask for it twice.
+function replayIfFinished() {
+  const lessons = LESSON_LIST.map((_, k) => FIRST_LESSON + k);
+  if (!lessons.length || !lessons.every(i => states[i].solved)) return;
+  lessons.forEach(i => {
+    const sent = states[i].sent;
+    states[i] = freshState(ALL_PUZZLES[i]);
+    states[i].sent = sent;
+  });
+  spotlitLessons.clear();   // and the guide greets each lesson again
+  saveProgress();
 }
 
 // play the lessons, from the first one you haven't finished
