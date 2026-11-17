@@ -6,9 +6,10 @@ let lastSaid = "";   // what the guide said last time, so it only hops when that
 let guidePoints = new Set();   // cats the guide points at ("start with Ash"), they pulse like a hint
 let guidePoint = null;         // the tour step whose button (pen, ✓ or Hint) the guide points at
 
-// The guide judges its own copy of the marks, which catches up GUIDE_WAIT_MS after your last tap.
-// A tap goes unknown, honest, liar: tapping twice for liar passes honest, and the guide shouldn't
-// call that wrong. The cards still change right away, and a lesson still counts as solved right away.
+// The guide judges its own copy of the marks. A wrong mark reaches it GUIDE_WAIT_MS after your last tap:
+// a tap goes unknown, honest, liar, so tapping twice for liar passes honest, and the guide shouldn't
+// call that wrong. A right mark (or taking a mark away) reaches it at once, so "Right!" comes instantly.
+// The cards still change right away, and a lesson still counts as solved right away.
 const GUIDE_WAIT_MS = 1400;
 let guideMarks = null;    // the marks the guide talks about
 let guideLesson = null;   // the lesson those marks belong to
@@ -23,13 +24,19 @@ function marksForGuide(s) {
     guideLesson = list[current];
     guidePending = now;
   } else if (now !== guidePending) {
-    // a tap: (re)start the wait, then catch up and talk
     guidePending = now;
     clearTimeout(guideTimer);
-    guideTimer = setTimeout(() => {
-      guideMarks = [...state().marks];
-      if (lesson() && guideLesson === list[current]) render();
-    }, GUIDE_WAIT_MS);
+    const liars = puzzle().liars;
+    const wrongNow = s.marks.some((mark, i) => mark !== guideMarks[i] && mark !== "unknown" && (mark === "liar") !== liars[i]);
+    if (!wrongNow) {
+      guideMarks = [...s.marks];   // a right mark: no waiting
+    } else {
+      // a wrong mark: (re)start the wait, then catch up and talk
+      guideTimer = setTimeout(() => {
+        guideMarks = [...state().marks];
+        if (lesson() && guideLesson === list[current]) render();
+      }, GUIDE_WAIT_MS);
+    }
   }
   return guideMarks;
 }
