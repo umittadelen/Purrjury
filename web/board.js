@@ -257,8 +257,9 @@ function fitText() {
 // a lesson's bubble is measured for the window's width, so a resize measures it again (render also fits the text)
 window.addEventListener("resize", () => {
   if (game.hidden) return;
-  // a phone's keyboard opening is a resize too. Redrawing would replace the comment box and close the keyboard
-  if (ratingBox.contains(document.activeElement)) return;
+  // a phone's keyboard opening is a resize too. Redrawing would replace the text box (a note, a rating
+  // comment) and close the keyboard
+  if (typing()) return;
   if (lesson()) render();
   else fitText();
 });
@@ -380,7 +381,8 @@ function showConnections(i) {
 function closeConnectionsOnClick(event) {
   if (highlight === null || longPressed) return;
   clearConnections();
-  if (event.target.closest(".card")) event.stopPropagation();
+  // a tap on the card itself stops here, but its ✎ and ✓ buttons still work
+  if (event.target.closest(".card") && !event.target.closest("button")) event.stopPropagation();
 }
 document.addEventListener("click", closeConnectionsOnClick, true);
 
@@ -390,7 +392,7 @@ function clearConnections() {
   highlight = null;
   legend.innerHTML = "";
   clearTimeout(highlightTimer);
-  render();
+  if (!typing()) render();   // the highlight fades on its own after a few seconds: not while you type a note
 }
 
 

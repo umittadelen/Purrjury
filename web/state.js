@@ -153,3 +153,6 @@ function lesson() {
 }
 function sizeOf(p) { return `${p.rows}x${p.cols}`; }
 function levelOf(p) { return p.level || "unrated"; }
+// true while you type in a text box (a note, a rating comment). A redraw then would replace the box
+// and close a phone's keyboard, so redraws that aren't from your own tap wait until you're done.
+function typing() { return document.activeElement?.matches("textarea, input") ?? false; }

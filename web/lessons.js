@@ -34,7 +34,8 @@ function marksForGuide(s) {
       // a wrong mark: (re)start the wait, then catch up and talk
       guideTimer = setTimeout(() => {
         guideMarks = [...state().marks];
-        if (lesson() && guideLesson === list[current]) render();
+        // no redraw while you type a note: the guide catches up on the next one
+        if (lesson() && guideLesson === list[current] && !typing()) render();
       }, GUIDE_WAIT_MS);
     }
   }
