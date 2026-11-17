@@ -290,14 +290,14 @@ function sendDaily(i) {
 // copy the day's result, to paste in a group chat
 function share(day) {
   const saved = savedProgress();
-  const parts = DAILY_SIZES.map(size => {
+  // one line per size: its time and its own hints
+  const lines = DAILY_SIZES.map(size => {
     const r = dailyRecord(day, size, saved);
-    return `${size} ${r?.solved ? formatTime(r.seconds) : "–"}`;
+    const hints = r?.hints ?? 0;
+    return `${size} ${r?.solved ? formatTime(r.seconds) : "–"} · ${hints} hint${hints === 1 ? "" : "s"}`;
   });
-  const hints = DAILY_SIZES.reduce((sum, size) => sum + (dailyRecord(day, size, saved)?.hints ?? 0), 0);
   const days = day === todayKey() ? streak() : 0;
-  const text = [`Purrjury ${dayLabel(day)} 🐾`, parts.join(" · "),
-    `${hints} hint${hints === 1 ? "" : "s"}` + (days ? ` · 🔥 ${days}` : ""), location.href.split(/[?#]/)[0]].join("\n");
+  const text = [`Purrjury ${dayLabel(day)} 🐾`, ...lines, ...(days ? [`🔥 ${days}`] : []), "purrjury.com"].join("\n");
   const done = () => { copied = true; renderRating(); setTimeout(() => { copied = false; if (!game.hidden) renderRating(); }, 1500); };
   // phones get their share menu, computers copy it
   if (navigator.share && matchMedia("(pointer: coarse)").matches) navigator.share({ text }).catch(() => {});
