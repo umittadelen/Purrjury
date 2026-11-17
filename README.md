@@ -2,8 +2,7 @@
 
 A daily logic puzzle about lying cats.
 
-Play it here: [yusufsocal.github.io/Purrjury](https://yusufsocal.github.io/Purrjury/)
-Will move to purrjury.com soon hopefully.
+Play it here: [purrjury.com](https://purrjury.com/)
 
 ## The game
 
