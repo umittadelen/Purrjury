@@ -15,8 +15,8 @@ function render() {
     : DAILY_MODE ? `${dayLabel(dayOf[list[current]])} · ${sizeOf(p)}`   // the daily never shows a level
     : `${level[0].toUpperCase() + level.slice(1)} ${sizeOf(p)} · ${current + 1} / ${list.length}`;
   renderLesson();
-  // the arrows: none on a daily puzzle (home has a tile for each), and no way back in the lessons
-  prevArrow.hidden = lesson() !== null || dayOf[list[current]] !== undefined;
+  // the arrows: none on a daily puzzle (home has a tile for each), and no back arrow on the first lesson
+  prevArrow.hidden = (lesson() !== null && current === 0) || dayOf[list[current]] !== undefined;
   nextArrow.hidden = lesson() === null && dayOf[list[current]] !== undefined;
   info.title = `seed ${p.seed}`;   // handy when someone reports a puzzle
   grid.dataset.cols = p.cols;   // lets the CSS shrink the clue text on narrow 4x4 cards
