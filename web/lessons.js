@@ -6,6 +6,34 @@ let lastSaid = "";   // what the guide said last time, so it only hops when that
 let guidePoints = new Set();   // cats the guide points at ("start with Ash"), they pulse like a hint
 let guidePoint = null;         // the tour step whose button (pen, ✓ or Hint) the guide points at
 
+// The guide judges its own copy of the marks, which catches up GUIDE_WAIT_MS after your last tap.
+// A tap goes unknown, honest, liar: tapping twice for liar passes honest, and the guide shouldn't
+// call that wrong. The cards still change right away, and a lesson still counts as solved right away.
+const GUIDE_WAIT_MS = 1400;
+let guideMarks = null;    // the marks the guide talks about
+let guideLesson = null;   // the lesson those marks belong to
+let guideTimer = null;
+let guidePending = "";    // the marks the wait is for, so other redraws (a hint, a right click) don't restart it
+
+function marksForGuide(s) {
+  const now = s.marks.join();
+  if (guideLesson !== list[current]) {   // a new lesson: no waiting, the guide starts from what's there
+    clearTimeout(guideTimer);
+    guideMarks = [...s.marks];
+    guideLesson = list[current];
+    guidePending = now;
+  } else if (now !== guidePending) {
+    // a tap: (re)start the wait, then catch up and talk
+    guidePending = now;
+    clearTimeout(guideTimer);
+    guideTimer = setTimeout(() => {
+      guideMarks = [...state().marks];
+      if (lesson() && guideLesson === list[current]) render();
+    }, GUIDE_WAIT_MS);
+  }
+  return guideMarks;
+}
+
 // the guide above a lesson's grid: a tuxedo cat (a coat no puzzle cat has) with a speech bubble
 // that holds the title, what to do, the tools to try, and feedback on your marks
 function renderLesson() {
@@ -16,10 +44,11 @@ function renderLesson() {
   document.body.classList.toggle("in-lesson", l !== null);
   hintButton.textContent = l?.steps ? "Next step" : "Hint";
   lessonBox.hidden = l === null;
-  if (!l) return;
+  if (!l) return endSpotlight();   // left the lessons: no dimmed screen left behind
   const s = state();
 
   lessonBox.innerHTML = "";
+  lessonBox.classList.toggle("roomy", puzzle().cats.length <= 4);   // tiny grid: room for a big guide
   const guide = document.createElement("img");
   guide.className = "guide";
   guide.src = `sprites/cat_tuxedo_${s.solved ? "happy" : "neutral"}.png`;   // happy once the lesson is solved
@@ -32,8 +61,9 @@ function renderLesson() {
   title.textContent = l.title;
   const intro = document.createElement("p");
   intro.textContent = l.intro;
+  const marks = marksForGuide(s);   // what the guide talks about: your marks, a moment after your last tap
   // the ending (and the last lesson's "something doesn't add up") take the intro's place, so the bubble needs less room
-  const allMarked = s.marks.every(mark => mark !== "unknown");
+  const allMarked = marks.every(mark => mark !== "unknown");
   intro.hidden = s.solved || (l.steps !== undefined && allMarked);
   bubble.append(title, intro);
 
@@ -45,14 +75,14 @@ function renderLesson() {
     feedback.append(l.done, " ", nextButton(current === list.length - 1));
   } else {
     const p = puzzle();
-    const right = cat => s.marks[cat] === (p.liars[cat] ? "liar" : "honest");
+    const right = cat => marks[cat] === (p.liars[cat] ? "liar" : "honest");
     // the cats this one's answer builds on (lesson.after) that aren't solved yet
     const unsolved = cat => (l.after?.[cat] ?? []).filter(c => !right(c));
     // a wrong mark you can already fix, then a mark (right or wrong) made before the cats it builds on
-    const wrong = s.marks.findIndex((mark, i) => mark !== "unknown" && !right(i) && !unsolved(i).length);
-    const early = s.marks.findIndex((mark, i) => mark !== "unknown" && unsolved(i).length);
+    const wrong = marks.findIndex((mark, i) => mark !== "unknown" && !right(i) && !unsolved(i).length);
+    const early = marks.findIndex((mark, i) => mark !== "unknown" && unsolved(i).length);
     // a cat that's ready now: the cats it builds on are solved and it has no mark yet (lesson.next)
-    const ready = Object.keys(l.next ?? {}).map(Number).find(cat => s.marks[cat] === "unknown" && !unsolved(cat).length);
+    const ready = Object.keys(l.next ?? {}).map(Number).find(cat => marks[cat] === "unknown" && !unsolved(cat).length);
     if (l.steps) {
       // the last lesson is a real puzzle: no word on single marks (that would let you guess your way through),
       // only once every cat is marked and something is off. Next step then finds the first mark that's off.
@@ -69,8 +99,8 @@ function renderLesson() {
     } else if (ready !== undefined) {
       feedback.textContent = l.next[ready];
       guidePoints = new Set([ready]);
-    } else if (tourStep(l, s)) {
-      const step = tourStep(l, s);
+    } else if (tourStep(l, s, marks)) {
+      const step = tourStep(l, s, marks);
       feedback.textContent = tourText(stepText(step));
       // the hint step points at Hint until it has shown the cat it finds
       guidePoint = step.point === "hint" && hintFound.size ? null : step;
@@ -87,25 +117,68 @@ function renderLesson() {
   if (said !== lastSaid) {
     guide.classList.add("hop");
     bubble.classList.add("pop");
+    // the spotlight only greets a lesson the first time you get there, not every new line (that got annoying)
+    if (!spotlitLessons.has(list[current])) spotlight();
+    spotlitLessons.add(list[current]);
   }
   lastSaid = said;
 }
 
 
+// Spotlight: when the guide says something new, it first takes the middle of the screen, bigger,
+// over a dimmed puzzle, so nobody misses it. After a few seconds (or a click) it moves back above the grid.
+// It's done with a transform on the lesson box: measure where the box is, move it to the middle,
+// then take the transform away with a transition, so you see it slide back to its spot.
+const SPOTLIGHT_MS = 3000;
+const spotlitLessons = new Set();   // lessons (indexes into ALL_PUZZLES) the spotlight has greeted already
+const spotlightBackdrop = document.createElement("div");
+spotlightBackdrop.id = "spotlight";
+document.body.append(spotlightBackdrop);
+let spotlightTimer = null;
+
+function spotlight() {
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  clearTimeout(spotlightTimer);
+  lessonBox.style.transition = "none";
+  lessonBox.style.transform = "";
+  const box = lessonBox.getBoundingClientRect();
+  // as big as fits: up to 1.6x, but never wider than 90% or taller than 80% of the window
+  const scale = Math.min(1.6, innerWidth * 0.9 / box.width, innerHeight * 0.8 / box.height);
+  const dx = innerWidth / 2 - (box.left + box.width / 2);
+  const dy = innerHeight / 2 - (box.top + box.height / 2);
+  lessonBox.style.transform = `translate(${dx}px, ${dy}px) scale(${scale})`;
+  spotlightBackdrop.classList.add("on");
+  spotlightTimer = setTimeout(endSpotlight, SPOTLIGHT_MS);
+}
+
+function endSpotlight() {
+  clearTimeout(spotlightTimer);
+  if (!spotlightBackdrop.classList.contains("on")) return;
+  lessonBox.style.transition = "transform 0.7s ease-in-out";
+  lessonBox.style.transform = "";
+  spotlightBackdrop.classList.remove("on");
+}
+
+// a click anywhere (on the dimmed puzzle or the bubble) skips the wait
+spotlightBackdrop.addEventListener("click", endSpotlight);
+lessonBox.addEventListener("click", endSpotlight);
+
+
 // lesson 4's tour: the first step you haven't done yet. A step stays done once you've done it,
 // and steps you do early count too, so the guide just skips them when it gets there.
-function tourStep(l, s) {
+function tourStep(l, s, marks) {
   if (!l.tour) return null;
-  l.tour.forEach(step => { if (stepDone(step, s)) s.tour[step.id] = true; });
+  l.tour.forEach(step => { if (stepDone(step, s, marks)) s.tour[step.id] = true; });
   return l.tour.find(step => !s.tour[step.id]) ?? null;
 }
 
 
-function stepDone(step, s) {
+// marks: the guide's marks, so tapping past "honest" on the way to "liar" doesn't finish a "mark it honest" step
+function stepDone(step, s, marks) {
   const done = step.done ?? {};   // the last step has none: it ends when the lesson is solved
   if ("note" in done) return s.notes[done.note].trim() !== "" && editing !== done.note;   // written and closed
   if ("connections" in done) return highlight === done.connections;
-  if ("mark" in done) return s.marks[done.mark[0]] === done.mark[1];
+  if ("mark" in done) return marks[done.mark[0]] === done.mark[1];
   if ("used" in done) return s.used[done.used];
   return false;
 }
